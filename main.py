@@ -2,11 +2,18 @@ import getpass
 
 from telethon.errors import SessionPasswordNeededError
 from telethon.sync import TelegramClient
+import TelethonFakeTLS
 
 from common import *
 from config import *
 
-client = TelegramClient(phone, api_id, api_hash)
+if proxy_host and proxy_port and proxy_secret:
+    proxy = (proxy_host, proxy_port, proxy_secret)
+    connection = TelethonFakeTLS.ConnectionTcpMTProxyFakeTLS
+    client = TelegramClient(phone, api_id, api_hash, connection=connection, proxy=proxy)
+else:
+    client = TelegramClient(phone, api_id, api_hash)
+
 
 client.connect()
 if not client.is_user_authorized():
