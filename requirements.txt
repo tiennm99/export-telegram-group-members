@@ -1,3 +1,0 @@
-python-dotenv==1.2.2
-redis[hiredis]==5.2.1
-Telethon==1.42.0
