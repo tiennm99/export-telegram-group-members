@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/celestix/gotgproto"
-	"github.com/celestix/gotgproto/ext"
 	"github.com/xelaj/mtproto"
 	"github.com/xelaj/mtproto/telegram"
 	"github.com/joho/godotenv"
@@ -21,10 +20,6 @@ type GroupMember struct {
 	Username  string `json:"username"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
-	IsBot     bool   `json:"is_bot,omitempty"`
-	IsScam    bool   `json:"is_scam,omitempty"`
-	IsFake    bool   `json:"is_fake,omitempty"`
-	PhoneNumber string `json:"phone_number,omitempty"`
 }
 
 // ExportConfiguration settings that define the export parameters
@@ -34,9 +29,6 @@ type ExportConfiguration struct {
 	PhoneNumber string `env:"PHONE"`
 	GroupID     int64  `env:"GROUP_ID"`
 	OutputDir   string `env:"OUTPUT_DIR"`
-	ProxyHost   string `env:"PROXY_HOST"`
-	ProxyPort   int    `env:"PROXY_PORT"`
-	ProxySecret string `env:"PROXY_SECRET"`
 	Verbose     bool   `env:"VERBOSE"`
 }
 
@@ -46,10 +38,6 @@ type ExportOptions struct {
 	IncludeUsername  bool
 	IncludeFirstName bool
 	IncludeLastName  bool
-	IncludeIsBot     bool
-	IncludeIsScam    bool
-	IncludeIsFake    bool
-	IncludePhoneNumber bool
 }
 
 // ExportResult represents the result of an export operation
@@ -70,10 +58,6 @@ func LoadExportOptions() ExportOptions {
 		IncludeUsername:  getBoolEnv("INCLUDE_USERNAME", true),
 		IncludeFirstName: getBoolEnv("INCLUDE_FIRST_NAME", true),
 		IncludeLastName:  getBoolEnv("INCLUDE_LAST_NAME", true),
-		IncludeIsBot:     getBoolEnv("INCLUDE_IS_BOT", false), // Default to false for privacy
-		IncludeIsScam:    getBoolEnv("INCLUDE_IS_SCAM", false), // Default to false
-		IncludeIsFake:    getBoolEnv("INCLUDE_IS_FAKE", false), // Default to false
-		IncludePhoneNumber: getBoolEnv("INCLUDE_PHONE_NUMBER", false), // Default to false for privacy
 	}
 }
 
@@ -103,9 +87,6 @@ func LoadConfig() (*ExportConfiguration, error) {
 		PhoneNumber: getEnv("PHONE", ""),
 		GroupID:     getInt64Env("GROUP_ID", 0),
 		OutputDir:   getEnv("OUTPUT_DIR", "out"),
-		ProxyHost:   getEnv("PROXY_HOST", ""),
-		ProxyPort:   getIntEnv("PROXY_PORT", 0),
-		ProxySecret: getEnv("PROXY_SECRET", ""),
 		Verbose:     getBoolEnv("VERBOSE", false),
 	}
 
@@ -158,29 +139,25 @@ func getInt64Env(key string, defaultValue int64) int64 {
 	return defaultValue
 }
 
-// InitializeTelegramClient initializes Telegram client using gotgproto with configuration values
-func InitializeTelegramClient(config *ExportConfiguration) (*gotgproto.Client, error) {
-	// Create device config with timeout settings
-	deviceConfig := &mtproto.DeviceConfig{
-		DeviceModel:    "Go Telegram Exporter",
-		SystemVersion:  "1.0.0",
-		AppVersion:     "1.0.0",
-		SystemLangCode: "en",
-		LangCode:       "en",
+// InitializeTelegramClient initializes Telegram client using xelaj/mtproto with configuration values
+func InitializeTelegramClient(config *ExportConfiguration) (*telegram.Client, error) {
+	// Setup storage paths
+	appStorage := os.TempDir() // Use temp directory for session storage
+	sessionFile := filepath.Join(appStorage, fmt.Sprintf("session_%s.json", config.PhoneNumber))
+	publicKeysFile := filepath.Join(appStorage, "tg_public_keys.pem")
+
+	// Create client config
+	clientConfig := telegram.ClientConfig{
+		SessionFile:     sessionFile,
+		ServerHost:      "149.154.167.50:443", // Telegram production server
+		PublicKeysFile:  publicKeysFile,
+		AppID:           int32(config.APIID),
+		AppHash:         config.APIHash,
+		InitWarnChannel: true,
 	}
 
-	// Create MTProto config with timeout settings
-	mtprotoConfig := &mtproto.Config{
-		AppID:   config.APIID,
-		AppHash: config.APIHash,
-		Device:  deviceConfig,
-		Timeout: 30 * time.Second, // 30 second timeout for network requests
-	}
-
-	client, err := gotgproto.NewClient(
-		mtprotoConfig,
-		gotgproto.ClientTypeUser(config.PhoneNumber),
-	)
+	// Initialize the client
+	client, err := telegram.NewClient(clientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Telegram client: %v", err)
 	}
@@ -189,11 +166,11 @@ func InitializeTelegramClient(config *ExportConfiguration) (*gotgproto.Client, e
 }
 
 // AuthenticateTelegram handles the authentication flow with code request and sign-in
-func AuthenticateTelegram(client *gotgproto.Client, config *ExportConfiguration) error {
+func AuthenticateTelegram(client *telegram.Client, config *ExportConfiguration) error {
 	// Send code request
-	sendCodeErr := client.SendCode(config.PhoneNumber)
-	if sendCodeErr != nil {
-		return fmt.Errorf("failed to send authentication code to %s. Please check your phone number and API credentials: %v", config.PhoneNumber, sendCodeErr)
+	codeResult, err := client.AuthSendCode(config.PhoneNumber, int32(config.APIID), config.APIHash, &telegram.CodeSettings{})
+	if err != nil {
+		return fmt.Errorf("failed to send authentication code to %s. Please check your phone number and API credentials: %v", config.PhoneNumber, err)
 	}
 
 	// Ask user for the code they received
@@ -202,20 +179,33 @@ func AuthenticateTelegram(client *gotgproto.Client, config *ExportConfiguration)
 	fmt.Scanln(&code)
 
 	// Sign in with the code
-	authResult, signInErr := client.SignIn(config.PhoneNumber, code)
-	if signInErr != nil {
-		// If 2FA is enabled, we need to handle password
-		if authResult.RequiredAuth == gotgproto.AuthTypePassword {
+	authResult, err := client.AuthSignIn(config.PhoneNumber, codeResult.PhoneCodeHash, code)
+	if err != nil {
+		// Check if 2FA is needed
+		if authErr, ok := err.(*mtproto.ErrResponseCode); ok && authErr.Message == "SESSION_PASSWORD_NEEDED" {
 			fmt.Print("2FA Password required. Enter password: ")
 			var password string
 			fmt.Scanln(&password)
 
-			_, signInErr = client.AuthWithPassword(password)
-			if signInErr != nil {
-				return fmt.Errorf("failed to authenticate with 2FA password. Please check your password and try again: %v", signInErr)
+			// Get password information
+			passwordData, err := client.AccountGetPassword()
+			if err != nil {
+				return fmt.Errorf("failed to get password information: %v", err)
+			}
+
+			// Create input check for password
+			inputCheck, err := telegram.GetInputCheckPassword(password, passwordData)
+			if err != nil {
+				return fmt.Errorf("failed to create password input: %v", err)
+			}
+
+			// Sign in with password
+			authResult, err = client.AuthCheckPassword(inputCheck)
+			if err != nil {
+				return fmt.Errorf("failed to authenticate with 2FA password. Please check your password and try again: %v", err)
 			}
 		} else {
-			return fmt.Errorf("failed to sign in with the provided code. Please check the code and try again: %v", signInErr)
+			return fmt.Errorf("failed to sign in with the provided code. Please check the code and try again: %v", err)
 		}
 	}
 
@@ -224,121 +214,109 @@ func AuthenticateTelegram(client *gotgproto.Client, config *ExportConfiguration)
 }
 
 // GetGroupMembers retrieves all members from specified group ID using Telegram client
-func GetGroupMembers(client *gotgproto.Client, groupID int64) ([]GroupMember, error) {
-	// Convert group ID to input peer
-	inputPeer := &telegram.InputPeerChat{
-		ChatId: int32(groupID),
-	}
+func GetGroupMembers(client *telegram.Client, groupID int64) ([]GroupMember, error) {
+	var inputChannel telegram.InputChannel
 
-	// Check if it's a supergroup (negative ID)
+	// Check if it's a supergroup/channel (negative ID)
 	if groupID < 0 {
-		inputPeer = &telegram.InputPeerChannel{
-			ChannelId:    int32(-groupID), // Channels use positive IDs
-			AccessHash:   0,               // Will be retrieved if needed
-		}
-	}
-
-	// Get full channel info to retrieve access hash and other details
-	// We'll try to get it first to see if it's a channel
-	result, err := callWithRetry(func() (interface{}, error) {
-		return client.API().ChannelsGetChannels(&telegram.ChannelsGetChannels{
-			ID: []telegram.InputChannel{
-				&telegram.InputChannel{
-					ChannelId:  int32(-groupID),
+		// Get channel info to retrieve access hash
+		channelsResult, err := callWithRetry(func() (interface{}, error) {
+			return client.ChannelsGetChannels([]telegram.InputChannel{
+				telegram.InputChannelObj{
+					ChannelID:  int32(-groupID),
 					AccessHash: 0,
 				},
-			},
-		})
-	}, 3)
-
-	if err == nil && result != nil {
-		channel := result.(*telegram.MessagesChats)
-		if len(channel.Chats) > 0 {
-			chat := channel.Chats[0]
-			if chatChannel, ok := chat.(*telegram.Channel); ok {
-				// It's a supergroup/channel
-				inputPeer = &telegram.InputPeerChannel{
-					ChannelId:  int32(chatChannel.Id),
-					AccessHash: chatChannel.AccessHash,
-				}
-			}
+			})
+		}, 3)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get channel info: %v", err)
 		}
+
+		channelsData := channelsResult.(*telegram.MessagesChatsObj)
+		if len(channelsData.Chats) == 0 {
+			return nil, fmt.Errorf("channel not found or access denied")
+		}
+
+		channel := channelsData.Chats[0].(*telegram.ChannelObj)
+		inputChannel = telegram.InputChannelObj{
+			ChannelID:  channel.ID,
+			AccessHash: channel.AccessHash,
+		}
+	} else {
+		// Regular chat
+		return nil, fmt.Errorf("regular chats (positive IDs) are not supported with this API. Only supergroups/channels (negative IDs) are supported")
 	}
 
-	// Get participants from the group/channel
+	// Get participants from the channel
 	var allMembers []GroupMember
-	var offset int32 = 0
-	const limit int32 = 200 // Telegram's limit for one request
+	offset := 0
+	const limit = 200 // Telegram's limit for one request
 
 	// Track progress
 	totalRetrieved := 0
 
 	for {
 		// Get participants in batches
-		var participants *telegram.ChannelsChannelParticipants
-		var err error
-
-		switch peer := inputPeer.(type) {
-		case *telegram.InputPeerChannel:
-			req := &telegram.ChannelsGetParticipants{
-				Channel: &telegram.InputChannel{
-					ChannelId:  peer.ChannelId,
-					AccessHash: peer.AccessHash,
-				},
-				Filter: &telegram.ChannelParticipantsRecent{},
-				Offset: offset,
-				Limit:  limit,
-				Hash:   0,
-			}
-
-			// Make the API call with retry logic
-			result, err := callWithRetry(func() (interface{}, error) {
-				return client.API().ChannelsGetParticipants(req)
-			}, 3)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get channel participants after retries: %v", err)
-			}
-			participants = result.(*telegram.ChannelsChannelParticipants)
-		default:
-			return nil, fmt.Errorf("unsupported peer type for getting members")
+		result, err := callWithRetry(func() (interface{}, error) {
+			return client.ChannelsGetParticipants(
+				inputChannel,
+				telegram.ChannelParticipantsFilterObj{},
+				limit,
+				int32(offset),
+				0, // hash
+			)
+		}, 3)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get channel participants after retries: %v", err)
 		}
 
-		// Convert telegram users to GroupMember
-		for _, participant := range participants.Participants {
-			var user *telegram.User
+		// Process the response
+		participantsData := result.(*telegram.ChannelsChannelParticipantsObj)
 
-			// Find the user in the users list
-			for _, u := range participants.Users {
-				if u.GetId() == participant.GetUserId() {
-					user = u
+		// Process channel participants
+		for _, participant := range participantsData.Participants {
+			// We need to extract user ID from participant
+			var userID int32
+			switch participant := participant.(type) {
+			case *telegram.ChannelParticipantSelf:
+				userID = participant.UserID
+			case *telegram.ChannelParticipant:
+				userID = participant.UserID
+			case *telegram.ChannelParticipantAdmin:
+				userID = participant.UserID
+			case *telegram.ChannelParticipantCreator:
+				userID = participant.UserID
+			}
+
+			// Find the corresponding user in the users list
+			var user *telegram.UserObj
+			for _, u := range participantsData.Users {
+				if uUser, ok := u.(*telegram.UserObj); ok && uUser.ID == userID {
+					user = uUser
 					break
 				}
 			}
 
 			if user != nil {
 				groupMember := GroupMember{
-					ID:        int64(user.GetId()),
-					Username:  user.GetUsername(),
-					FirstName: user.GetFirstName(),
-					LastName:  user.GetLastName(),
-					IsBot:     user.GetBot(),
-					IsScam:    user.GetScam(),
-					IsFake:    user.GetFake(),
-					PhoneNumber: user.GetPhone(),
+					ID:        int64(user.ID),
+					Username:  user.Username,
+					FirstName: user.FirstName,
+					LastName:  user.LastName,
 				}
 				allMembers = append(allMembers, groupMember)
 			}
 		}
 
 		// Update progress
-		totalRetrieved += len(participants.Participants)
-		totalParticipants := totalRetrieved // Approximate total since Telegram doesn't give exact count upfront
+		count := len(participantsData.Participants)
+		totalRetrieved += count
 
-		// For a more accurate progress, we'll just show current progress based on what we've retrieved
+		// Show progress
 		fmt.Printf("Retrieved %d members so far...\n", totalRetrieved)
 
 		// Check if we've retrieved all members
-		if int32(len(participants.Participants)) < limit {
+		if count < limit {
 			break
 		}
 
@@ -472,18 +450,6 @@ func FilterMembersByOptions(members []GroupMember, options ExportOptions) []map[
 		if options.IncludeLastName {
 			filteredMember["last_name"] = member.LastName
 		}
-		if options.IncludeIsBot {
-			filteredMember["is_bot"] = member.IsBot
-		}
-		if options.IncludeIsScam {
-			filteredMember["is_scam"] = member.IsScam
-		}
-		if options.IncludeIsFake {
-			filteredMember["is_fake"] = member.IsFake
-		}
-		if options.IncludePhoneNumber {
-			filteredMember["phone_number"] = member.PhoneNumber
-		}
 
 		filteredMembers = append(filteredMembers, filteredMember)
 	}
@@ -532,16 +498,13 @@ func ExportToJSON(members []GroupMember, filePath string, options ExportOptions)
 	return nil
 }
 
-// GenerateFilePath generates file path using group name and current date in format 'groupname_members_YYYYMMDD.json'
-func GenerateFilePath(groupName string, outputDir string) string {
-	// Sanitize group name by removing special characters that might cause issues in filenames
-	sanitizedGroupName := sanitizeFileName(groupName)
-
+// GenerateFilePath generates file path using group ID and current date in format 'group_ID_members_YYYYMMDD.json'
+func GenerateFilePath(groupID int64, outputDir string) string {
 	// Get current date in YYYYMMDD format
 	currentDate := time.Now().Format("20060102")
 
 	// Create filename
-	filename := fmt.Sprintf("%s_members_%s.json", sanitizedGroupName, currentDate)
+	filename := fmt.Sprintf("group_%d_members_%s.json", groupID, currentDate)
 
 	// Create full path
 	return fmt.Sprintf("%s/%s", outputDir, filename)
@@ -577,7 +540,7 @@ func replaceAll(str, old, new string) string {
 }
 
 // ValidateGroupAccess checks if the user has access to the specified group
-func ValidateGroupAccess(client *gotgproto.Client, groupID int64) error {
+func ValidateGroupAccess(client *telegram.Client, groupID int64) error {
 	_, err := GetGroupName(client, groupID)
 	if err != nil {
 		return fmt.Errorf("user does not have access to group with ID %d: %v", groupID, err)
@@ -586,63 +549,33 @@ func ValidateGroupAccess(client *gotgproto.Client, groupID int64) error {
 }
 
 // GetGroupName retrieves the name of a group or channel by its ID
-func GetGroupName(client *gotgproto.Client, groupID int64) (string, error) {
-	// Convert group ID to input peer
-	var inputPeer telegram.InputPeer
-
+func GetGroupName(client *telegram.Client, groupID int64) (string, error) {
 	// Check if it's a supergroup/channel (negative ID)
 	if groupID < 0 {
-		inputPeer = &telegram.InputPeerChannel{
-			ChannelId:  int32(-groupID),
-			AccessHash: 0, // Will be retrieved if needed
-		}
-	} else {
-		inputPeer = &telegram.InputPeerChat{
-			ChatId: int32(groupID),
-		}
-	}
-
-	// Get full channel/chat info to retrieve the name
-	var err error
-	var chats *telegram.MessagesChats
-	var isChannel = groupID < 0
-
-	if isChannel {
-		channelsReq := &telegram.ChannelsGetChannels{
-			ID: []telegram.InputChannel{
-				&telegram.InputChannel{
-					ChannelId:  int32(-groupID),
-					AccessHash: 0,
-				},
+		// For channels/supergroups
+		resp, err := client.ChannelsGetChannels([]telegram.InputChannel{
+			telegram.InputChannelObj{
+				ChannelID:  int32(-groupID),
+				AccessHash: 0, // Will be retrieved if needed
 			},
-		}
-		resp, err := client.API().ChannelsGetChannels(channelsReq)
+		})
 		if err != nil {
 			return "", fmt.Errorf("failed to get channel info: %v", err)
 		}
-		chats = resp.(*telegram.MessagesChats)
+
+		chatsData := resp.(*telegram.MessagesChatsObj)
+		if len(chatsData.Chats) == 0 {
+			return "", fmt.Errorf("no channel found with ID: %d", groupID)
+		}
+
+		chat := chatsData.Chats[0]
+		if channel, ok := chat.(*telegram.ChannelObj); ok {
+			return channel.Title, nil
+		} else {
+			return fmt.Sprintf("group_%d", groupID), nil
+		}
 	} else {
-		chatsReq := &telegram.MessagesGetChats{
-			ID: []int32{int32(groupID)},
-		}
-		resp, err := client.API().MessagesGetChats(chatsReq)
-		if err != nil {
-			return "", fmt.Errorf("failed to get chat info: %v", err)
-		}
-		chats = resp.(*telegram.MessagesChats)
-	}
-
-	if len(chats.Chats) == 0 {
-		return "", fmt.Errorf("no chat found with ID: %d", groupID)
-	}
-
-	chat := chats.Chats[0]
-	switch c := chat.(type) {
-	case *telegram.Chat:
-		return c.Title, nil
-	case *telegram.Channel:
-		return c.Title, nil
-	default:
+		// For regular chats - not supported with this API approach
 		return fmt.Sprintf("group_%d", groupID), nil
 	}
 }
@@ -658,7 +591,7 @@ func ExportWorkflow(config *ExportConfiguration) (*ExportResult, error) {
 			ErrorMessage: fmt.Sprintf("Failed to initialize client: %v", err),
 		}, err
 	}
-	defer client.Stop()
+	// Note: mtproto client doesn't have a Stop() method like gotgproto
 
 	// Authenticate with Telegram
 	if err := AuthenticateTelegram(client, config); err != nil {
@@ -694,7 +627,7 @@ func ExportWorkflow(config *ExportConfiguration) (*ExportResult, error) {
 	options := LoadExportOptions()
 
 	// Generate output file path
-	outputFilePath := GenerateFilePath(groupName, config.OutputDir)
+	outputFilePath := GenerateFilePath(config.GroupID, config.OutputDir)
 
 	// Export members to JSON
 	if err := ExportToJSON(members, outputFilePath, options); err != nil {
@@ -708,7 +641,7 @@ func ExportWorkflow(config *ExportConfiguration) (*ExportResult, error) {
 	// Create successful export result
 	result := &ExportResult{
 		GroupID:        config.GroupID,
-		GroupName:      groupName,
+		GroupName:      fmt.Sprintf("group_%d", config.GroupID), // Using group ID format for consistency
 		MemberCount:    len(members),
 		OutputFilePath: outputFilePath,
 		ExportTime:     time.Now(),
@@ -751,36 +684,35 @@ func (l *Logger) Error(message string) {
 }
 
 // GetAccessibleGroups retrieves all groups accessible to the authenticated user
-func GetAccessibleGroups(client *gotgproto.Client) ([]*telegram.Chat, []*telegram.Channel, error) {
+func GetAccessibleGroups(client *telegram.Client) ([]*telegram.ChatObj, []*telegram.ChannelObj, error) {
 	// Get dialogs (chats and channels the user is part of)
-	dialogs, err := client.API().MessagesGetDialogs(&telegram.MessagesGetDialogs{
-		OffsetDate: 0,
-		OffsetID:   0,
-		OffsetPeer: &telegram.InputPeerEmpty{},
-		Limit:      100, // Limit for the first request
-		Hash:       0,
-	})
+	dialogs, err := client.MessagesGetDialogs(
+		0,    // offset date
+		0,    // offset ID
+		telegram.InputPeerObj{}, // offset peer
+		100,  // limit
+		0,    // hash
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get dialogs: %v", err)
 	}
 
-	var chats []*telegram.Chat
-	var channels []*telegram.Channel
+	var chats []*telegram.ChatObj
+	var channels []*telegram.ChannelObj
 
-	switch d := dialogs.(type) {
-	case *telegram.MessagesDialogs:
-		for _, chat := range d.Chats {
-			switch c := chat.(type) {
-			case *telegram.Chat:
-				// Only include chats that are groups (not one-to-one conversations)
-				if c.GetParticipantsCount() > 2 {
-					chats = append(chats, c)
-				}
-			case *telegram.Channel:
-				// Include channels and supergroups
-				if c.GetMegaGroup() || !c.GetBroadcast() { // MegaGroup = supergroup, !Broadcast = not a channel
-					channels = append(channels, c)
-				}
+	dialogsData := dialogs.(*telegram.MessagesDialogsObj)
+
+	for _, chat := range dialogsData.Chats {
+		switch c := chat.(type) {
+		case *telegram.ChatObj:
+			// Only include chats that are groups (not one-to-one conversations)
+			if c.ParticipantsCount > 2 {
+				chats = append(chats, c)
+			}
+		case *telegram.ChannelObj:
+			// Include channels and supergroups
+			if c.Megagroup || !c.Broadcast { // Megagroup = supergroup, !Broadcast = not a channel
+				channels = append(channels, c)
 			}
 		}
 	}
@@ -801,7 +733,7 @@ func FormatChatName(chat interface{}) string {
 }
 
 // SelectGroupByUser prompts user to select a group from available groups
-func SelectGroupByUser(client *gotgproto.Client) (int64, error) {
+func SelectGroupByUser(client *telegram.Client) (int64, error) {
 	fmt.Println("Fetching accessible groups...")
 	chats, channels, err := GetAccessibleGroups(client)
 	if err != nil {
@@ -838,10 +770,10 @@ func SelectGroupByUser(client *gotgproto.Client) (int64, error) {
 
 	// Determine which group was selected
 	if selection < len(chats) {
-		return int64(chats[selection].Id), nil
+		return int64(chats[selection].ID), nil
 	} else {
 		channelIndex := selection - len(chats)
-		return -int64(channels[channelIndex].Id), nil // Negative for channels/supergroups
+		return -int64(channels[channelIndex].ID), nil // Negative for channels/supergroups
 	}
 }
 
@@ -871,7 +803,7 @@ func main() {
 		log.Printf("[ERROR] Error initializing client: %v\n", err)
 		return
 	}
-	defer client.Stop()
+	// Note: mtproto client doesn't have a Stop() method like gotgproto
 
 	logger.Info("Starting authentication process")
 	// Authenticate with Telegram
