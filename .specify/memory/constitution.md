@@ -1,50 +1,53 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: 1.0.0 → 1.0.0 (initial constitution)
+- Modified principles: N/A (initial creation)
+- Added sections: Core Principles (5 principles), Code Standards, Development Workflow, Governance
+- Removed sections: N/A
+- Templates requiring updates:
+  - ✅ .specify/templates/plan-template.md (Constitution Check aligned)
+  - ⚠ .specify/templates/spec-template.md (pending verification)
+  - ⚠ .specify/templates/tasks-template.md (pending verification)
+  - ⚠ .specify/templates/commands/*.md (pending verification)
+- Follow-up TODOs: N/A
+-->
+
+# Export Telegram Group Members Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Code Clarity First
+Every line of code must be immediately understandable by a Python developer familiar with the language. Functions should do one thing well with descriptive names. Complex logic must be broken down into smaller, self-documenting pieces. No clever tricks or obscure language features.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Minimal Dependencies
+Only use external libraries when absolutely necessary. Prefer built-in Python modules and simple solutions. Each dependency must justify its existence by solving a problem that would be more complex to implement directly. The project must remain easy to set up with minimal installation steps.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Straightforward Control Flow
+Code execution path must be obvious and linear. Avoid deep nesting, complex callbacks, or convoluted state machines. Use early returns and guard clauses to maintain readability. The main execution flow should be readable from top to bottom like a simple story.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Explicit Over Implicit
+All configurations, constants, and behavior must be clearly visible in the code. No magic numbers, hidden defaults, or implicit conversions. Environment variables and configuration files must be documented with examples. Error conditions must be handled explicitly with clear messages.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Human-Readable Output
+Both code output and user interfaces prioritize human understanding. CSV exports use clear headers, log messages describe what's happening in plain language, error messages explain what went wrong and what to do next. Progress indicators show meaningful status updates.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Code Standards
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+**Maximum Function Length**: 30 lines
+**Maximum Nesting Depth**: 3 levels
+**Variable Names**: Full words, no abbreviations unless universally understood
+**Comments**: Only explain "why", never "what"
+**File Organization**: One clear purpose per file, logical grouping by functionality
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Development Workflow
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Code Review**: All changes must be reviewed for clarity and simplicity
+**Testing**: Write tests for complex logic, keep them simple and focused
+**Documentation**: Update README with any configuration or usage changes
+**Refactoring**: Regularly simplify complex areas, never add complexity
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other practices and guidelines. Amendments require updating this document with clear reasoning for changes. All code reviews must verify compliance with these principles. When in doubt, choose the simpler, more readable approach.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-12-06 | **Last Amended**: 2025-12-06

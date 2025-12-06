@@ -31,7 +31,11 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] **Code Clarity**: Functions under 30 lines, nesting under 3 levels, descriptive names
+- [ ] **Minimal Dependencies**: Only essential libraries, justify each dependency
+- [ ] **Straightforward Flow**: Linear execution path, minimal nesting, early returns
+- [ ] **Explicit Configuration**: No magic numbers, clear environment variables
+- [ ] **Human-Readable Output**: Clear progress indicators, meaningful error messages
 
 ## Project Structure
 
