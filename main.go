@@ -7,6 +7,9 @@ import (
 	"strconv"
 
 	"github.com/celestix/gotgproto"
+	"github.com/celestix/gotgproto/dispatcher/handlers"
+	"github.com/celestix/gotgproto/dispatcher/handlers/filters"
+	"github.com/celestix/gotgproto/ext"
 	"github.com/celestix/gotgproto/sessionMaker"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
@@ -45,7 +48,7 @@ func main() {
 		gotgproto.ClientTypePhone(phoneNumber),
 		// Optional parameters of client
 		&gotgproto.ClientOpts{
-			Session: sessionMaker.SqlSession(sqlite.Open("echobot")),
+			Session: sessionMaker.SqlSession(sqlite.Open("echobot.sqlite3")),
 		},
 	)
 	if err != nil {
@@ -54,5 +57,15 @@ func main() {
 
 	fmt.Printf("client (@%s) has been started...\n", client.Self.Username)
 
+	clientDispatcher := client.Dispatcher
+
+	clientDispatcher.AddHandlerToGroup(handlers.NewMessage(filters.Message.Text, echo), 1)
+
 	client.Idle()
+}
+
+func echo(ctx *ext.Context, update *ext.Update) error {
+	msg := update.EffectiveMessage
+	_, err := ctx.Reply(update, ext.ReplyTextString(msg.Text), nil)
+	return err
 }
