@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
@@ -38,6 +39,22 @@ func main() {
 		log.Fatal("APP_HASH not set")
 		return
 	}
+	groupIdsStr, isExist := os.LookupEnv("GROUP_IDS")
+	if !isExist {
+		log.Fatal("GROUP_IDS not set")
+		return
+	}
+	parts := strings.Split(groupIdsStr, ",")
+	groupIds := make([]int64, 0, len(parts))
+
+	for _, p := range parts {
+		v, err := strconv.ParseInt(strings.TrimSpace(p), 10, 64)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		groupIds = append(groupIds, v)
+	}
 
 	client, err := gotgproto.NewClient(
 		// Get AppID from https://my.telegram.org/apps
@@ -56,6 +73,11 @@ func main() {
 	}
 
 	fmt.Printf("client (@%s) has been started...\n", client.Self.Username)
+
+	ctx := client.CreateContext()
+	groupId := groupIds[0]
+	group, err := ctx.GetChat(groupId)
+	group.GetAbout()
 
 	clientDispatcher := client.Dispatcher
 
