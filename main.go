@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/ext"
 	"github.com/celestix/gotgproto/sessionMaker"
+	"github.com/gotd/td/tg"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
 )
@@ -66,12 +68,78 @@ func main() {
 
 	fmt.Printf("client (@%s) has been started...\n", client.Self.Username)
 
-	groupId := groupIds[0]
 	ctx := client.CreateContext()
-	// client.API().ChannelsGetParticipants() // TODO
-	group, err := ctx.GetChat(groupId)
-	fmt.Printf("About: %s", group.GetAbout())
+	api := client.API()
 
+	// Example: work with the first group ID
+	groupID := groupIds[0]
+
+	inputPeer, err := ctx.ResolveInputPeerById(groupID)
+	if err != nil {
+		log.Fatalf("failed to resolve input peer: %v", err)
+	}
+
+	p := inputPeer.(*tg.InputPeerChannel)
+
+	chat, err := ctx.GetChat(groupID)
+	if err != nil {
+		log.Fatalf("failed to get chat: %v", err)
+	}
+
+	// Prepare input channel
+	inputChannel := &tg.InputChannel{
+		ChannelID:  chat.GetID(),
+		AccessHash: p.AccessHash,
+	}
+
+	// Collect unique user IDs
+	users := make(map[int64]struct{})
+
+	offset := 0
+	limit := 100
+	totalCount := 200
+
+	for offset < totalCount {
+		resp, err := api.ChannelsGetParticipants(context.Background(), &tg.ChannelsGetParticipantsRequest{
+			Channel: inputChannel,
+			Filter:  &tg.ChannelParticipantsRecent{},
+			Offset:  offset,
+			Limit:   limit,
+			Hash:    0,
+		})
+		if err != nil {
+			log.Fatalf("failed to get participants: %v", err)
+		}
+
+		data := resp.(*tg.ChannelsChannelParticipants)
+		totalCount = data.Count
+
+		for _, p := range data.Participants {
+			switch participant := p.(type) {
+			case *tg.ChannelParticipantSelf:
+				users[participant.UserID] = struct{}{}
+			case *tg.ChannelParticipant:
+				users[participant.UserID] = struct{}{}
+			case *tg.ChannelParticipantAdmin:
+				users[participant.UserID] = struct{}{}
+			case *tg.ChannelParticipantCreator:
+				users[participant.UserID] = struct{}{}
+			}
+		}
+
+		offset += limit
+		log.Printf("Fetched %d / %d participants\n", offset, totalCount)
+	}
+
+	log.Printf("Total unique participants: %d\n", len(users))
+
+	// Optional: convert map to slice
+	userIDs := make([]int64, 0, len(users))
+	for id := range users {
+		userIDs = append(userIDs, id)
+	}
+
+	log.Println("Done.")
 	client.Idle()
 }
 
