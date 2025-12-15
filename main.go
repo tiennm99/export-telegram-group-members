@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/celestix/gotgproto"
-	"github.com/celestix/gotgproto/dispatcher/handlers"
-	"github.com/celestix/gotgproto/dispatcher/handlers/filters"
 	"github.com/celestix/gotgproto/ext"
 	"github.com/celestix/gotgproto/sessionMaker"
 	"github.com/joho/godotenv"
@@ -24,12 +22,12 @@ func main() {
 	if !isExist {
 		log.Fatal("TG_PHONE not set")
 	}
-	rawApiId, isExist := os.LookupEnv("APP_ID")
+	rawAppId, isExist := os.LookupEnv("APP_ID")
 	if !isExist {
 		log.Fatal("APP_ID not set!")
 		return
 	}
-	appId, err := strconv.Atoi(rawApiId)
+	appId, err := strconv.Atoi(rawAppId)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -39,12 +37,12 @@ func main() {
 		log.Fatal("APP_HASH not set")
 		return
 	}
-	groupIdsStr, isExist := os.LookupEnv("GROUP_IDS")
+	rawGroupIds, isExist := os.LookupEnv("GROUP_IDS")
 	if !isExist {
 		log.Fatal("GROUP_IDS not set")
 		return
 	}
-	groupIds, err := strToInts(groupIdsStr)
+	groupIds, err := strToInts(rawGroupIds)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -68,14 +66,11 @@ func main() {
 
 	fmt.Printf("client (@%s) has been started...\n", client.Self.Username)
 
-	ctx := client.CreateContext()
 	groupId := groupIds[0]
+	ctx := client.CreateContext()
+	// client.API().ChannelsGetParticipants() // TODO
 	group, err := ctx.GetChat(groupId)
-	group.GetAbout()
-
-	clientDispatcher := client.Dispatcher
-
-	clientDispatcher.AddHandlerToGroup(handlers.NewMessage(filters.Message.Text, echo), 1)
+	fmt.Printf("About: %s", group.GetAbout())
 
 	client.Idle()
 }
