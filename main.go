@@ -44,16 +44,10 @@ func main() {
 		log.Fatal("GROUP_IDS not set")
 		return
 	}
-	parts := strings.Split(groupIdsStr, ",")
-	groupIds := make([]int64, 0, len(parts))
-
-	for _, p := range parts {
-		v, err := strconv.ParseInt(strings.TrimSpace(p), 10, 64)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-		groupIds = append(groupIds, v)
+	groupIds, err := strToInts(groupIdsStr)
+	if err != nil {
+		log.Fatal(err)
+		return
 	}
 
 	client, err := gotgproto.NewClient(
@@ -65,7 +59,7 @@ func main() {
 		gotgproto.ClientTypePhone(phoneNumber),
 		// Optional parameters of client
 		&gotgproto.ClientOpts{
-			Session: sessionMaker.SqlSession(sqlite.Open("echobot.sqlite3")),
+			Session: sessionMaker.SqlSession(sqlite.Open("session.sqlite3")),
 		},
 	)
 	if err != nil {
@@ -90,4 +84,19 @@ func echo(ctx *ext.Context, update *ext.Update) error {
 	msg := update.EffectiveMessage
 	_, err := ctx.Reply(update, ext.ReplyTextString(msg.Text), nil)
 	return err
+}
+
+func strToInts(s string) ([]int64, error) {
+	parts := strings.Split(s, ",")
+	ints := make([]int64, 0, len(parts))
+
+	for _, p := range parts {
+		v, err := strconv.ParseInt(strings.TrimSpace(p), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ints = append(ints, v)
+	}
+
+	return ints, nil
 }
