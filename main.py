@@ -2,6 +2,7 @@ import getpass
 
 from telethon.errors import SessionPasswordNeededError
 from telethon.sync import TelegramClient
+from telethon.tl.types import Chat, Channel
 import TelethonFakeTLS
 
 from common import *
@@ -25,16 +26,16 @@ if not client.is_user_authorized():
 
 client.start(phone)
 
-dialogs = client.get_dialogs()
-for dialog in dialogs:
-    if not dialog.is_group:
-        print('skip ' + dialog.name + ' because it is not a group.')
-        continue
-    if dialog.name not in group_names_to_export:
-        print('skip ' + dialog.name + ' because it is not in the list of group names to export.')
-        continue
-    print('exporting ' + dialog.name)
-    members = client.get_participants(dialog)
-    members.sort(key=lambda x: x.id)
-    export_csv(dialog.name, members)
-    print('export ' + dialog.name + ' done.')
+for group_id in group_ids:
+    try:
+        entity = client.get_entity(group_id)
+        if not isinstance(entity, (Chat, Channel)):
+            print(f'skip {group_id} because it is not a group.')
+            continue
+        print(f'exporting {entity.title} (ID: {group_id})')
+        members = client.get_participants(entity)
+        members.sort(key=lambda x: x.id)
+        export_csv(entity.title, members)
+        print(f'export {entity.title} done.')
+    except Exception as e:
+        print(f'error accessing group {group_id}: {e}')
