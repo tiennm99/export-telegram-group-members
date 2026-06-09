@@ -4,9 +4,9 @@ The session string grants full account access; it lives only in Redis (behind
 TLS/auth), never on local disk. Deleting the key simply forces a clean re-login.
 """
 
-from config import key, phone, redis_client
+from config import key, redis_client
 
-_SESSION_KEY = key('session', phone)
+_SESSION_KEY = key('session')
 
 
 def load_session():

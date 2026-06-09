@@ -18,14 +18,22 @@ pip install -r requirements.txt
 
 3. Create a new Telegram app at [https://my.telegram.org](https://my.telegram.org) and get the `api_id` and `api_hash`.
 4. Create a free Redis database (e.g. [Upstash](https://upstash.com)) and copy its `rediss://` connection URL.
-5. Copy `.env.example` to `.env` and fill in `API_ID`, `API_HASH`, `PHONE`, `GROUP_IDS`, and `REDIS_URL`.
-6. Crawl configured groups:
+5. Copy `.env.example` to `.env` and fill in `REDIS_URL`.
+6. Store Telegram config in Redis:
+
+```bash
+python configure.py --api-id <api_id> --phone <phone> --groups <group_id1>,<group_id2>
+```
+
+`configure.py` prompts for `api_hash` so it does not land in shell history.
+
+7. Crawl configured groups:
 
 ```bash
 python crawl.py
 ```
 
-The first run asks for the Telegram login code once, then stores the session in Redis. Any later run — on any device pointed at the same Redis — reuses that session and **does not** prompt again.
+The first crawl asks for the Telegram login code once, then stores the session in Redis. Any later run — on any device pointed at the same Redis — reuses the Redis config and session, and **does not** prompt again.
 
 ## Compare two crawls
 
@@ -47,19 +55,19 @@ The output lists members added in `time2` and removed since `time1`.
 
 | Variable | Description |
 |----------|-------------|
-| `PHONE` | Telegram account phone (e.g. `+1234567890`) |
-| `API_ID` / `API_HASH` | From [my.telegram.org](https://my.telegram.org) |
-| `GROUP_IDS` | Comma-separated group IDs to export |
 | `REDIS_URL` | Redis connection string (`rediss://default:<password>@<host>:<port>`) |
-| `REDIS_PREFIX` | Key namespace (default `telegram-export`); isolates keys when sharing Redis with other projects |
+
+Telegram `api_id`, `api_hash`, `phone`, and `group_ids` are stored in Redis by `configure.py`.
 
 ## How data is stored
 
-All data lives in Redis under `REDIS_PREFIX`. No key references another, so deleting any key can never corrupt another's state:
+All data lives in Redis under the `telegram-export` prefix. No key references another, so deleting any key can never corrupt another's state:
 
 ```
-<prefix>:session:<phone>                        -> StringSession string (login)
-<prefix>:run:<phone>:<yyyymmddhhmmss>:<group_id> -> one group's export as JSON:
+telegram-export:config                         -> JSON config:
+                                 { api_id, api_hash, phone, group_ids }
+telegram-export:session                        -> StringSession string (login)
+telegram-export:run:<yyyymmddhhmmss>:<group_id> -> one group's export as JSON:
                                  { group_id, title, time,
                                    members: [{ id, username, first_name, last_name }] }
 ```

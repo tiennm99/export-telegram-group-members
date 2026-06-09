@@ -1,8 +1,6 @@
 import argparse
 import sys
 
-from common import diff_group_members, get_group_export, latest_two_group_exports
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -23,6 +21,8 @@ def parse_args():
 def main():
     args = parse_args()
 
+    from common import diff_group_members, get_group_export, latest_two_group_exports
+
     if args.times:
         before_time, after_time = args.times
         before_record = get_group_export(args.group_id, before_time)
@@ -39,12 +39,12 @@ def main():
             print(f'need at least 2 exports for group {args.group_id}', file=sys.stderr)
             return 1
 
-    print_summary(args.group_id, before_record, after_record)
+    added, removed = diff_group_members(before_record, after_record)
+    print_summary(args.group_id, before_record, after_record, added, removed)
     return 0
 
 
-def print_summary(group_id, before_record, after_record):
-    added, removed = diff_group_members(before_record, after_record)
+def print_summary(group_id, before_record, after_record, added, removed):
     title = after_record.get('title') or before_record.get('title') or ''
     before_members = before_record.get('members', [])
     after_members = after_record.get('members', [])
