@@ -19,13 +19,29 @@ pip install -r requirements.txt
 3. Create a new Telegram app at [https://my.telegram.org](https://my.telegram.org) and get the `api_id` and `api_hash`.
 4. Create a free Redis database (e.g. [Upstash](https://upstash.com)) and copy its `rediss://` connection URL.
 5. Copy `.env.example` to `.env` and fill in `API_ID`, `API_HASH`, `PHONE`, `GROUP_IDS`, and `REDIS_URL`.
-6. Run the script:
+6. Crawl configured groups:
 
 ```bash
-python main.py
+python crawl.py
 ```
 
 The first run asks for the Telegram login code once, then stores the session in Redis. Any later run — on any device pointed at the same Redis — reuses that session and **does not** prompt again.
+
+## Compare two crawls
+
+Compare membership changes for one group between two saved crawls:
+
+```bash
+python compare.py <group_id> <time1> <time2>
+```
+
+If `time1` and `time2` are omitted, the command compares the latest two crawls for that group:
+
+```bash
+python compare.py <group_id>
+```
+
+The output lists members added in `time2` and removed since `time1`.
 
 ## Configuration
 

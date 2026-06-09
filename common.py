@@ -60,3 +60,50 @@ def list_exports():
             continue
     records.sort(key=lambda r: (r.get('time', ''), r.get('group_id', 0)))
     return records
+
+
+def list_group_exports(group_id):
+    """Return export records for one group, sorted by run time."""
+    group_id = str(group_id)
+    return [
+        record for record in list_exports()
+        if str(record.get('group_id')) == group_id
+    ]
+
+
+def get_group_export(group_id, run_time):
+    """Return a group export at one run time, or None when missing."""
+    for record in list_group_exports(group_id):
+        if record.get('time') == run_time:
+            return record
+    return None
+
+
+def latest_two_group_exports(group_id):
+    """Return the latest two export records for a group."""
+    exports = list_group_exports(group_id)
+    if len(exports) < 2:
+        return None, None
+    return exports[-2], exports[-1]
+
+
+def diff_group_members(before_record, after_record):
+    """Compare two group export records by Telegram member id."""
+    before_members = _member_index(before_record)
+    after_members = _member_index(after_record)
+
+    before_ids = set(before_members)
+    after_ids = set(after_members)
+
+    added = [after_members[member_id] for member_id in sorted(after_ids - before_ids)]
+    removed = [before_members[member_id] for member_id in sorted(before_ids - after_ids)]
+    return added, removed
+
+
+def _member_index(record):
+    members = {}
+    for member in record.get('members', []):
+        member_id = member.get('id')
+        if member_id is not None:
+            members[int(member_id)] = member
+    return members
