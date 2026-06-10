@@ -37,20 +37,27 @@ The first crawl asks for the Telegram login code once, then stores the session i
 
 ## Compare two crawls
 
-Compare membership changes for one group between two saved crawls:
+Compare membership changes for one group between two saved crawls with the
+git-diff-style terminal output:
 
 ```bash
 python compare.py <group_id> <time1> <time2>
 ```
 
-If `time1` and `time2` are omitted, the command compares the latest two crawls for that group:
+If `time1` and `time2` are omitted, the command compares the latest two crawls
+for that group:
 
 ```bash
 python compare.py <group_id>
 ```
 
-The output uses a git-diff-style view: removed members are prefixed with `-`,
-added members are prefixed with `+`, and the hunk header shows member counts.
+For a WinMerge-style side-by-side table, use:
+
+```bash
+python compareui.py <group_id> <time1> <time2>
+```
+
+It accepts the same optional `time1 time2` arguments as `compare.py`.
 
 ## Configuration
 
