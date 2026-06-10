@@ -2,12 +2,12 @@
 
 Each group's members are stored per export as one self-contained JSON key:
 
-    <prefix>:run:<group_id>:<yyyymmddhhmmss>
+    <prefix>:group:<group_id>:<yyyymmddhhmmss>
         ->  {group_id, title, time, members:[{id,username,first_name,last_name}]}
 
 All groups in a single run share one timestamp. No key references another, so
 deleting any key can never corrupt another's state. Writing a group export is a
-single atomic SET; listing scans the run keys.
+single atomic SET; listing scans the group export keys.
 """
 
 import json
@@ -39,7 +39,7 @@ def save_group_export(group_id, title, members, run_time):
         'members': [member_dict(m) for m in members],
     }
     redis_client.set(
-        key('run', str(group_id), run_time),
+        key('group', str(group_id), run_time),
         json.dumps(record, ensure_ascii=False),
     )
 
@@ -50,8 +50,8 @@ def list_exports():
     Tolerates keys deleted mid-scan and corrupt/non-JSON values (skips them).
     """
     records = []
-    for export_key in redis_client.scan_iter(match=key('run', '*', '*')):
-        if not _is_group_time_run_key(export_key):
+    for export_key in redis_client.scan_iter(match=key('group', '*', '*')):
+        if not _is_group_export_key(export_key):
             continue
         raw = redis_client.get(export_key)
         if raw is None:  # deleted between scan and get
@@ -75,7 +75,7 @@ def list_group_exports(group_id):
 
 def get_group_export(group_id, run_time):
     """Return a group export at one run time, or None when missing."""
-    raw = redis_client.get(key('run', str(group_id), run_time))
+    raw = redis_client.get(key('group', str(group_id), run_time))
     if raw is None:
         return None
     try:
@@ -118,6 +118,6 @@ def _is_run_time(value):
     return len(value) == 14 and value.isdigit()
 
 
-def _is_group_time_run_key(export_key):
+def _is_group_export_key(export_key):
     parts = export_key.split(':')
-    return len(parts) == 4 and not _is_run_time(parts[2]) and _is_run_time(parts[3])
+    return len(parts) == 4 and _is_run_time(parts[3])
