@@ -26,7 +26,8 @@ def parse_args():
 def main():
     args = parse_args()
 
-    from common import diff_group_members, get_group_export, latest_two_group_exports
+    # Lazy import: keeps `python compare.py --help` working when REDIS_URL is unset.
+    from common import diff_group_members, get_group_export, list_group_exports
 
     if args.times:
         before_time, after_time = args.times
@@ -39,10 +40,11 @@ def main():
             print(f'export not found for group {args.group_id} at {after_time}', file=sys.stderr)
             return 1
     else:
-        before_record, after_record = latest_two_group_exports(args.group_id)
-        if before_record is None or after_record is None:
+        exports = list_group_exports(args.group_id)
+        if len(exports) < 2:
             print(f'need at least 2 exports for group {args.group_id}', file=sys.stderr)
             return 1
+        before_record, after_record = exports[-2:]
 
     added, removed = diff_group_members(before_record, after_record)
     print_summary(args.group_id, before_record, after_record, added, removed)

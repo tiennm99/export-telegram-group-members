@@ -28,7 +28,6 @@ def main():
         except SessionPasswordNeededError:
             client.sign_in(password=getpass.getpass())
 
-    client.start(phone)
     save_session(client.session.save())
 
     run_time = new_run_time()

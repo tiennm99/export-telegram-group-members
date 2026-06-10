@@ -26,19 +26,19 @@ def load_app_config():
     raw = redis_client.get(key('config'))
     if not raw:
         raise SystemExit(
-            'Telegram config not found in Redis. Run configure.py first.'
+            'telegram config not found in Redis. run configure.py first.'
         )
     try:
         config = json.loads(raw)
     except ValueError as exc:
-        raise SystemExit('Telegram config in Redis is not valid JSON.') from exc
+        raise SystemExit('telegram config in Redis is not valid JSON.') from exc
 
     missing = [
         name for name in ('api_id', 'api_hash', 'phone', 'group_ids')
         if not config.get(name)
     ]
     if missing:
-        raise SystemExit(f'Telegram config missing: {", ".join(missing)}')
+        raise SystemExit(f'telegram config missing: {", ".join(missing)}')
 
     return {
         'api_id': int(config['api_id']),

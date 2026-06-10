@@ -64,6 +64,7 @@ def main():
     phone = prompt_phone(args.phone)
     group_ids = prompt_groups(args.groups)
 
+    # Lazy import: keeps `python configure.py --help` working when REDIS_URL is unset.
     from config import save_app_config
 
     config = save_app_config(api_id, api_hash, phone, group_ids)

@@ -84,14 +84,6 @@ def get_group_export(group_id, run_time):
         return None
 
 
-def latest_two_group_exports(group_id):
-    """Return the latest two export records for a group."""
-    exports = list_group_exports(group_id)
-    if len(exports) < 2:
-        return None, None
-    return exports[-2], exports[-1]
-
-
 def diff_group_members(before_record, after_record):
     """Compare two group export records by Telegram member id."""
     before_members = _member_index(before_record)
@@ -106,12 +98,11 @@ def diff_group_members(before_record, after_record):
 
 
 def _member_index(record):
-    members = {}
-    for member in record.get('members', []):
-        member_id = member.get('id')
-        if member_id is not None:
-            members[int(member_id)] = member
-    return members
+    return {
+        int(member['id']): member
+        for member in record.get('members', [])
+        if member.get('id') is not None
+    }
 
 
 def _is_run_time(value):
