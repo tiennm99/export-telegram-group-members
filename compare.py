@@ -1,6 +1,11 @@
 import argparse
 import sys
 
+RESET = '\033[0m'
+GREEN = '\033[32m'
+RED = '\033[31m'
+CYAN = '\033[36m'
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -48,38 +53,65 @@ def print_summary(group_id, before_record, after_record, added, removed):
     title = after_record.get('title') or before_record.get('title') or ''
     before_members = before_record.get('members', [])
     after_members = after_record.get('members', [])
+    before_time = before_record.get('time')
+    after_time = after_record.get('time')
+    label = f'{title} ({group_id})' if title else str(group_id)
 
-    print(f'group: {title} ({group_id})' if title else f'group: {group_id}')
-    print(f'before: {before_record.get("time")} ({len(before_members)} members)')
-    print(f'after:  {after_record.get("time")} ({len(after_members)} members)')
+    print(f'diff --telegram-group "{label}"')
+    print(color(f'--- crawl/{before_time}', RED))
+    print(color(f'+++ crawl/{after_time}', GREEN))
+    print(color(
+        f'@@ members: {len(before_members)} -> {len(after_members)} '
+        f'(+{len(added)} -{len(removed)}) @@',
+        CYAN,
+    ))
     print()
 
-    print(f'added: {len(added)}')
-    for member in added:
-        print(f'+ {format_member(member)}')
-
-    print()
-    print(f'removed: {len(removed)}')
+    widths = column_widths([*removed, *added])
     for member in removed:
-        print(f'- {format_member(member)}')
+        print(color(format_member_row('-', member, widths), RED))
+    for member in added:
+        print(color(format_member_row('+', member, widths), GREEN))
 
     if not added and not removed:
-        print()
-        print('no membership changes.')
+        print(' no membership changes.')
 
 
-def format_member(member):
-    parts = [str(member.get('id'))]
+def color(text, code):
+    if not sys.stdout.isatty():
+        return text
+    return f'{code}{text}{RESET}'
+
+
+def member_columns(member):
     username = member.get('username')
     full_name = ' '.join(
         part for part in [member.get('first_name'), member.get('last_name')]
         if part
     )
-    if username:
-        parts.append(f'@{username}')
-    if full_name:
-        parts.append(full_name)
-    return ' | '.join(parts)
+    return [
+        str(member.get('id')),
+        f'@{username}' if username else '',
+        full_name,
+    ]
+
+
+def column_widths(members):
+    widths = [2, 8, 4]
+    for member in members:
+        for index, value in enumerate(member_columns(member)):
+            widths[index] = max(widths[index], len(value))
+    return widths
+
+
+def format_member_row(prefix, member, widths):
+    member_id, username, full_name = member_columns(member)
+    return (
+        f'{prefix} '
+        f'{member_id:<{widths[0]}}  '
+        f'{username:<{widths[1]}}  '
+        f'{full_name:<{widths[2]}}'
+    ).rstrip()
 
 
 if __name__ == '__main__':

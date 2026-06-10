@@ -49,7 +49,8 @@ If `time1` and `time2` are omitted, the command compares the latest two crawls f
 python compare.py <group_id>
 ```
 
-The output lists members added in `time2` and removed since `time1`.
+The output uses a git-diff-style view: removed members are prefixed with `-`,
+added members are prefixed with `+`, and the hunk header shows member counts.
 
 ## Configuration
 
