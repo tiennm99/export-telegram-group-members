@@ -82,17 +82,6 @@ for rec in list_exports():       # sorted by (time, group_id)
     print(rec['time'], rec['group_id'], rec['title'], len(rec['members']), 'members')
 ```
 
-If you have data written under the older `run:<time>:<group_id>` or
-`run:<group_id>:<time>` keys, migrate it once:
-
-```bash
-python migrate_run_keys_to_group_time.py --dry-run
-python migrate_run_keys_to_group_time.py
-```
-
-After verifying compare/history output, run it again with `--delete-old` to
-remove the older `run:*:*` keys. Existing `group:<group_id>:<time>` keys are kept.
-
 ## Rate limits and visibility notes
 
 - Telegram limits how fast you can fetch participants; large groups may take longer.
