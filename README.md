@@ -22,10 +22,10 @@ pip install -r requirements.txt
 6. Store Telegram config in Redis:
 
 ```bash
-python configure.py --api-id <api_id> --phone <phone> --groups <group_id1>,<group_id2>
+python configure.py
 ```
 
-`configure.py` prompts for `api_hash` so it does not land in shell history.
+`configure.py` prompts for `api_id`, `api_hash`, phone, and group IDs.
 
 7. Crawl configured groups:
 
