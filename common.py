@@ -2,7 +2,7 @@
 
 Each group's members are stored per export as one self-contained JSON key:
 
-    <prefix>:run:<yyyymmddhhmmss>:<group_id>
+    <prefix>:run:<group_id>:<yyyymmddhhmmss>
         ->  {group_id, title, time, members:[{id,username,first_name,last_name}]}
 
 All groups in a single run share one timestamp. No key references another, so
@@ -39,7 +39,7 @@ def save_group_export(group_id, title, members, run_time):
         'members': [member_dict(m) for m in members],
     }
     redis_client.set(
-        key('run', run_time, str(group_id)),
+        key('run', str(group_id), run_time),
         json.dumps(record, ensure_ascii=False),
     )
 
@@ -50,7 +50,9 @@ def list_exports():
     Tolerates keys deleted mid-scan and corrupt/non-JSON values (skips them).
     """
     records = []
-    for export_key in redis_client.scan_iter(match=key('run', '*')):
+    for export_key in redis_client.scan_iter(match=key('run', '*', '*')):
+        if not _is_group_time_run_key(export_key):
+            continue
         raw = redis_client.get(export_key)
         if raw is None:  # deleted between scan and get
             continue
@@ -73,10 +75,13 @@ def list_group_exports(group_id):
 
 def get_group_export(group_id, run_time):
     """Return a group export at one run time, or None when missing."""
-    for record in list_group_exports(group_id):
-        if record.get('time') == run_time:
-            return record
-    return None
+    raw = redis_client.get(key('run', str(group_id), run_time))
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        return None
 
 
 def latest_two_group_exports(group_id):
@@ -107,3 +112,12 @@ def _member_index(record):
         if member_id is not None:
             members[int(member_id)] = member
     return members
+
+
+def _is_run_time(value):
+    return len(value) == 14 and value.isdigit()
+
+
+def _is_group_time_run_key(export_key):
+    parts = export_key.split(':')
+    return len(parts) == 4 and not _is_run_time(parts[2]) and _is_run_time(parts[3])
