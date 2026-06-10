@@ -51,14 +51,6 @@ for that group:
 python compare.py <group_id>
 ```
 
-For a WinMerge-style side-by-side table, use:
-
-```bash
-python compareui.py <group_id> <time1> <time2>
-```
-
-It accepts the same optional `time1 time2` arguments as `compare.py`.
-
 ## Configuration
 
 | Variable | Description |
