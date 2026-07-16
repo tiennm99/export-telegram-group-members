@@ -51,6 +51,13 @@ for that group:
 python compare.py <group_id>
 ```
 
+If `group_id` is also omitted, the command uses the first group in the stored
+configuration:
+
+```bash
+python compare.py
+```
+
 ## Configuration
 
 | Variable | Description |

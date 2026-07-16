@@ -11,7 +11,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Compare member changes between two crawls for one group.',
     )
-    parser.add_argument('group_id', type=int, help='Telegram group id to compare')
+    parser.add_argument(
+        'group_id',
+        type=int,
+        nargs='?',
+        help='Telegram group id to compare (defaults to the first configured group)',
+    )
     parser.add_argument(
         'times',
         nargs='*',
@@ -29,25 +34,31 @@ def main():
     # Lazy import: keeps `python compare.py --help` working when REDIS_URL is unset.
     from common import diff_group_members, get_group_export, list_group_exports
 
+    group_id = args.group_id
+    if group_id is None:
+        from config import load_app_config
+
+        group_id = load_app_config()['group_ids'][0]
+
     if args.times:
         before_time, after_time = args.times
-        before_record = get_group_export(args.group_id, before_time)
-        after_record = get_group_export(args.group_id, after_time)
+        before_record = get_group_export(group_id, before_time)
+        after_record = get_group_export(group_id, after_time)
         if before_record is None:
-            print(f'export not found for group {args.group_id} at {before_time}', file=sys.stderr)
+            print(f'export not found for group {group_id} at {before_time}', file=sys.stderr)
             return 1
         if after_record is None:
-            print(f'export not found for group {args.group_id} at {after_time}', file=sys.stderr)
+            print(f'export not found for group {group_id} at {after_time}', file=sys.stderr)
             return 1
     else:
-        exports = list_group_exports(args.group_id)
+        exports = list_group_exports(group_id)
         if len(exports) < 2:
-            print(f'need at least 2 exports for group {args.group_id}', file=sys.stderr)
+            print(f'need at least 2 exports for group {group_id}', file=sys.stderr)
             return 1
         before_record, after_record = exports[-2:]
 
     added, removed = diff_group_members(before_record, after_record)
-    print_summary(args.group_id, before_record, after_record, added, removed)
+    print_summary(group_id, before_record, after_record, added, removed)
     return 0
 
 
