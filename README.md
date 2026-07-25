@@ -69,6 +69,34 @@ configuration:
 python compare.py
 ```
 
+## Export a crawl to CSV
+
+Export one group's saved crawl from Redis:
+
+```bash
+python export.py [group_id] [timecrawl]
+```
+
+When `timecrawl` is omitted, the latest crawl for the group is exported. When
+both arguments are omitted, the first group in the stored configuration and its
+latest crawl are used. An explicit crawl time must use `yyyymmddhhmmss` format:
+
+```bash
+python export.py -1001234567890 20260724120000
+```
+
+CSV files are written to:
+
+```text
+output/<group-id>-<yyyymmddhhmmss>.csv
+```
+
+Each file contains the columns `id`, `username`, `first_name`, and `last_name`.
+Formula-like Telegram text is prefixed with an apostrophe for safe spreadsheet
+opening. On POSIX systems, the `output/` directory is created with `0700`
+permissions and each CSV file is written with `0600` permissions. The `output/`
+directory is ignored by Git.
+
 ## Configuration
 
 | Variable | Description |

@@ -1,6 +1,7 @@
 # project
 *.session
 *.csv
+output/
 plans/
 
 # python

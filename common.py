@@ -73,6 +73,20 @@ def list_group_exports(group_id):
     ]
 
 
+def latest_group_export_time(group_id):
+    """Return the latest Redis-key timestamp for one group, or None."""
+    latest_time = None
+    for export_key in redis_client.scan_iter(
+        match=key('group', str(group_id), '*'),
+    ):
+        if not _is_group_export_key(export_key):
+            continue
+        run_time = export_key.rsplit(':', 1)[-1]
+        if latest_time is None or run_time > latest_time:
+            latest_time = run_time
+    return latest_time
+
+
 def get_group_export(group_id, run_time):
     """Return a group export at one run time, or None when missing."""
     raw = redis_client.get(key('group', str(group_id), run_time))
