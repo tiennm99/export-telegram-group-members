@@ -1,4 +1,3 @@
-import argparse
 import getpass
 
 from telethon.errors import SessionPasswordNeededError
@@ -11,26 +10,12 @@ from config import load_app_config
 from session_store import load_session, save_session
 
 
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(
-        description='Export members from one or more Telegram groups.',
-    )
-    parser.add_argument(
-        'group_ids',
-        nargs='+',
-        type=int,
-        metavar='group_id',
-        help='Telegram group ID to crawl (provide one or more)',
-    )
-    return parser.parse_args(argv)
-
-
-def main(argv=None):
-    args = parse_args(argv)
+def main():
     app_config = load_app_config()
     api_hash = app_config['api_hash']
     api_id = app_config['api_id']
     phone = app_config['phone']
+    group_ids = app_config['group_ids']
 
     # Session loads from Redis: a saved string means no re-login on any device.
     client = TelegramClient(StringSession(load_session()), api_id, api_hash)
@@ -47,7 +32,7 @@ def main(argv=None):
 
     run_time = new_run_time()
     saved = 0
-    for group_id in args.group_ids:
+    for group_id in group_ids:
         try:
             entity = client.get_entity(group_id)
             if not isinstance(entity, (Chat, Channel)):

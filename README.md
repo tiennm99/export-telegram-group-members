@@ -25,26 +25,19 @@ pip install -r requirements.txt
 python configure.py
 ```
 
-`configure.py` prompts for `api_id`, `api_hash`, phone, and group IDs. The stored
-group IDs remain available to commands that use configured defaults, such as
-`compare.py`.
+`configure.py` prompts for `api_id`, `api_hash`, phone, and group IDs. All
+commands read the stored group IDs from this Redis config.
 
-7. Crawl one or more groups by ID:
-
-```bash
-python crawl.py <group_id> [<group_id> ...]
-```
-
-For example:
+7. Crawl the configured groups:
 
 ```bash
-python crawl.py -1001234567890 -1009876543210
+python crawl.py
 ```
 
-Only the group IDs supplied to this command are crawled; the stored group list
-is not used. The first crawl asks for the Telegram login code once, then stores
-the session in Redis. Any later run — on any device pointed at the same Redis —
-reuses the Redis config and session, and **does not** prompt again.
+Every group ID stored in the Redis config is crawled. To change the list, run
+`configure.py` again. The first crawl asks for the Telegram login code once,
+then stores the session in Redis. Any later run — on any device pointed at the
+same Redis — reuses the Redis config and session, and **does not** prompt again.
 
 ## Compare two crawls
 
