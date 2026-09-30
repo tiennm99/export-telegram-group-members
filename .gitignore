@@ -17,4 +17,6 @@ env/
 
 # tooling
 .idea/
-.claude/
+*.session
+*.csv
+out/

@@ -1,0 +1,59 @@
+# Export API Contract
+
+## Export Members Endpoint
+
+### Request
+```
+POST /export
+```
+
+**Headers:**
+- `Content-Type: application/json`
+
+**Body:**
+```json
+{
+  "groupId": -1001234567890,
+  "outputFormat": "json",
+  "outputPath": "out/",
+  "includeUsernames": true,
+  "includePhoneNumbers": false
+}
+```
+
+**Parameters:**
+- `groupId` (int64, required): The Telegram group ID to export members from
+- `outputFormat` (string, optional): Output format, default: "json"
+- `outputPath` (string, optional): Output directory, default: "out/"
+- `includeUsernames` (boolean, optional): Whether to include usernames, default: true
+- `includePhoneNumbers` (boolean, optional): Whether to include phone numbers, default: false
+
+### Response
+
+**Success (200):**
+```json
+{
+  "success": true,
+  "groupId": -1001234567890,
+  "groupName": "Example Group",
+  "memberCount": 150,
+  "outputFile": "out/example_group_members_20251206.json",
+  "exportTime": "2025-12-06T17:11:00Z"
+}
+```
+
+**Error (400, 401, 403, 500):**
+```json
+{
+  "success": false,
+  "error": "Error message describing the issue",
+  "code": "ERROR_CODE"
+}
+```
+
+**Common Error Codes:**
+- `AUTH_FAILED`: Authentication with Telegram failed
+- `GROUP_NOT_FOUND`: Specified group ID doesn't exist or is inaccessible
+- `INSUFFICIENT_PERMISSIONS`: User doesn't have permission to access group members
+- `INVALID_GROUP_ID`: Group ID format is invalid
+- `EXPORT_FAILED`: General failure during export process
