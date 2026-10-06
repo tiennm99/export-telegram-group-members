@@ -35,8 +35,17 @@ python crawl.py
 ```
 
 Every group ID stored in the Redis config is crawled. To change the list, run
-`configure.py` again. The first crawl asks for the Telegram login code once,
-then stores the session in Redis. Any later run — on any device pointed at the
+`configure.py` again.
+
+To crawl other groups just once, pass their IDs; they replace the configured
+list for that run only:
+
+```bash
+python crawl.py -1001234567890 -1009876543210
+```
+
+The first crawl asks for the Telegram login code once, then stores the session
+in Redis. Any later run — on any device pointed at the
 same Redis — reuses the Redis config and session, and **does not** prompt again.
 
 ## Compare two crawls
