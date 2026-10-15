@@ -24,7 +24,7 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-func TestLoadConfigReadsPythonWrittenJSON(t *testing.T) {
+func TestLoadConfigReadsStoredJSON(t *testing.T) {
 	st, mr := newTestStore(t)
 	mr.Set("telegram-export:config",
 		`{"api_id": 123, "api_hash": "hash", "phone": "+1555", "group_ids": [-1001234567890]}`)

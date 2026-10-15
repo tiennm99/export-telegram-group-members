@@ -22,8 +22,8 @@ type groupRef struct {
 	id   int64
 }
 
-// parseGroupID splits a marked ID (as Telethon and the Python version store
-// it) into a basic group or a channel/supergroup and its raw Telegram ID.
+// parseGroupID splits a marked ID (as configured and stored) into a basic
+// group or a channel/supergroup and its raw Telegram ID.
 func parseGroupID(markedID int64) (groupRef, error) {
 	switch {
 	case markedID <= -channelIDOffset:

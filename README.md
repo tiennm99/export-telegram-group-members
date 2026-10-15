@@ -147,14 +147,6 @@ All groups in one crawl share one timestamp. The login session grants full
 account access, so restrict Redis access accordingly; deleting
 `telegram-export:session-gotd` forces a clean re-login.
 
-### Upgrading from the Python version
-
-The config and export keys keep the same format, so existing crawls stay
-readable by `compare` and `export`. The Python version kept a Telethon session
-under `telegram-export:session`. On first run, the Go version converts it into
-`telegram-export:session-gotd`, so you do not need a new login code. The old key
-is only read, never changed, and can be deleted afterwards.
-
 ## Development
 
 ```bash
