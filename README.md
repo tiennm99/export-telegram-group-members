@@ -71,6 +71,19 @@ configuration:
 python compare.py
 ```
 
+## Compare two groups
+
+Fetch two groups live from Telegram and compare their members by Telegram ID:
+
+```bash
+python compare_groups.py <group_id_a> <group_id_b>
+```
+
+Members in both groups are listed unprefixed, members only in the first group
+with `-`, and members only in the second group with `+`. No crawl is saved to
+Redis; the command uses Redis only for the Telegram config and login session,
+the same way `crawl.py` does.
+
 ## Export a crawl to CSV
 
 Export one group's saved crawl from Redis:
